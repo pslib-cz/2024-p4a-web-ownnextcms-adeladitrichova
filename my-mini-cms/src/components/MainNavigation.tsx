@@ -55,12 +55,6 @@ export default function MainNavigation() {
                     {session ? (
                         <>
                             <Link
-                                href="/dashboard/create"
-                                className="flex items-center text-gray-700 hover:text-blue-600 transition"
-                            >
-                                <PenTool className="mr-2" size={20} /> Create Content
-                            </Link>
-                            <Link
                                 href="/dashboard"
                                 className="flex items-center text-gray-700 hover:text-blue-600 transition"
                             >
@@ -104,13 +98,6 @@ export default function MainNavigation() {
 
                             {session ? (
                                 <>
-                                    <Link
-                                        href="/dashboard/create"
-                                        className="flex items-center p-2 hover:bg-gray-100 rounded"
-                                        onClick={toggleMenu}
-                                    >
-                                        <PenTool className="mr-2" size={20} /> Create Content
-                                    </Link>
                                     <Link
                                         href="/dashboard"
                                         className="flex items-center p-2 hover:bg-gray-100 rounded"

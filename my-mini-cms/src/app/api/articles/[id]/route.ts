@@ -1,13 +1,19 @@
 // src/app/api/articles/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/libs/auth';
+import { getAuthSession } from '@/libs/auth';
 import prisma from '@/libs/prisma';
 
+// GET single article
 export async function GET(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
+        const session = await getAuthSession();
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const article = await prisma.article.findUnique({
             where: { id: params.id },
             include: {
@@ -15,111 +21,131 @@ export async function GET(
                     select: {
                         name: true,
                         email: true,
-                    },
+                    }
                 },
-                tags: true,
                 category: true,
+                tags: true,
             },
         });
 
         if (!article) {
-            return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+            return NextResponse.json({ error: "Article not found" }, { status: 404 });
+        }
+
+        // Check if the user owns this article
+        if (article.author.email !== session.user.email) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         return NextResponse.json(article);
     } catch (error) {
-        return NextResponse.json({ error: 'Error fetching article' }, { status: 500 });
+        console.error('GET article error:', error);
+        return NextResponse.json(
+            { error: "Failed to fetch article" },
+            { status: 500 }
+        );
     }
 }
 
+// UPDATE article
 export async function PUT(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const session = await getAuthSession();
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const article = await prisma.article.findUnique({
             where: { id: params.id },
-            select: { authorId: true },
+            include: { author: true },
         });
 
         if (!article) {
-            return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+            return NextResponse.json({ error: "Article not found" }, { status: 404 });
         }
 
-        if (article.authorId !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        // Check if the user owns this article
+        if (article.author.email !== session.user.email) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const json = await request.json();
-        const { title, content, categoryId, tags, published } = json;
+        const { title, content, categoryId, tags = [], published } = json;
 
         const updatedArticle = await prisma.article.update({
             where: { id: params.id },
             data: {
                 title,
                 content,
-                categoryId,
                 published,
-                tags: {
-                    set: [], // Remove all existing tags
-                    connectOrCreate: tags.map((tag: string) => ({
-                        where: { name: tag },
-                        create: { name: tag },
-                    })),
+                category: {
+                    connect: { id: categoryId }
                 },
+                tags: {
+                    set: [], // Clear existing tags
+                    connect: tags.map((tagId: string) => ({ id: tagId }))
+                }
             },
             include: {
                 author: {
                     select: {
                         name: true,
                         email: true,
-                    },
+                    }
                 },
-                tags: true,
                 category: true,
-            },
+                tags: true,
+            }
         });
 
         return NextResponse.json(updatedArticle);
     } catch (error) {
-        return NextResponse.json({ error: 'Error updating article' }, { status: 500 });
+        console.error('PUT article error:', error);
+        return NextResponse.json(
+            { error: "Failed to update article" },
+            { status: 500 }
+        );
     }
 }
 
+// DELETE article
 export async function DELETE(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const session = await getAuthSession();
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const article = await prisma.article.findUnique({
             where: { id: params.id },
-            select: { authorId: true },
+            include: { author: true },
         });
 
         if (!article) {
-            return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+            return NextResponse.json({ error: "Article not found" }, { status: 404 });
         }
 
-        if (article.authorId !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        // Check if the user owns this article
+        if (article.author.email !== session.user.email) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         await prisma.article.delete({
             where: { id: params.id },
         });
 
-        return NextResponse.json({ message: 'Article deleted successfully' });
+        return NextResponse.json({ message: "Article deleted successfully" });
     } catch (error) {
-        return NextResponse.json({ error: 'Error deleting article' }, { status: 500 });
+        console.error('DELETE article error:', error);
+        return NextResponse.json(
+            { error: "Failed to delete article" },
+            { status: 500 }
+        );
     }
 }
