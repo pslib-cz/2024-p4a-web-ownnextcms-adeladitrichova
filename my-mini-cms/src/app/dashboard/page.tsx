@@ -1,151 +1,250 @@
 // src/app/dashboard/page.tsx
-import { auth } from "@/libs/auth";
-import prisma from "@/libs/prisma";
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Pencil, Trash2, Eye } from "lucide-react";
+'use client';
 
-export default async function Dashboard() {
-    const session = await auth();
+import { useState } from 'react';
+import {
+    Tabs,
+    Table,
+    Button,
+    Group,
+    Text,
+    Modal,
+    TextInput,
+    Select
+} from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import {
+    Plus,
+    Pencil,
+    Trash,
+    Eye
+} from 'lucide-react';
 
-    if (!session?.user) {
-        redirect("/api/auth/signin");
-    }
+type Content = {
+    id: string;
+    title: string;
+    type: 'article' | 'review';
+    status: 'draft' | 'published';
+    createdAt: Date;
+};
 
-    const user = await prisma.user.findUnique({
-        where: { email: session.user.email! },
-        include: {
-            articles: {
-                include: {
-                    category: true,
-                    tags: true,
-                },
-                orderBy: {
-                    createdAt: 'desc'
-                }
-            },
-            reviews: {
-                orderBy: {
-                    createdAt: 'desc'
-                }
-            }
+export default function ContentDashboard() {
+    const [opened, { open, close }] = useDisclosure(false);
+    const [contents, setContents] = useState<Content[]>([
+        {
+            id: '1',
+            title: 'First Article',
+            type: 'article',
+            status: 'published',
+            createdAt: new Date(),
+        },
+        {
+            id: '2',
+            title: 'First Review',
+            type: 'review',
+            status: 'draft',
+            createdAt: new Date(),
         }
+    ]);
+
+    const [activeTab, setActiveTab] = useState<string | null>('articles');
+    const [newContent, setNewContent] = useState({
+        title: '',
+        type: activeTab === 'articles' ? 'article' : 'review',
+        status: 'draft'
     });
 
-    if (!user) {
-        redirect("/api/auth/signin");
-    }
+    const handleCreateContent = () => {
+        // Implement content creation logic
+        const newItem: Content = {
+            id: (contents.length + 1).toString(),
+            ...newContent,
+            createdAt: new Date(),
+        };
+        setContents([...contents, newItem]);
+        close();
+    };
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-6">
-                Welcome, {session.user.name ?? 'Creator'}
-            </h1>
+        <div>
+            <Group justify="space-between" mb="lg">
+                <Text size="xl" fw={700}>
+                    Content Management Dashboard
+                </Text>
+                <Button
+                    leftSection={<Plus size={14} />}
+                    onClick={open}
+                >
+                    Create New Content
+                </Button>
+            </Group>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Articles Section */}
-                <div className="bg-white shadow-md rounded-lg p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-semibold">My Articles</h2>
-                        <Link
-                            href="/dashboard/create/article"
-                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-                        >
-                            New Article
-                        </Link>
-                    </div>
+            <Tabs
+                value={activeTab}
+                onChange={setActiveTab}
+            >
+                <Tabs.List>
+                    <Tabs.Tab value="articles">Articles</Tabs.Tab>
+                    <Tabs.Tab value="reviews">Reviews</Tabs.Tab>
+                </Tabs.List>
 
-                    {user.articles.length === 0 ? (
-                        <p className="text-gray-500">No articles yet</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {user.articles.map((article) => (
-                                <div
-                                    key={article.id}
-                                    className="border-b pb-4 flex justify-between items-center"
-                                >
-                                    <div>
-                                        <h3 className="font-medium">
-                                            {article.title}
-                                        </h3>
-                                        <p className="text-sm text-gray-500">
-                                            {article.category.name} | {new Date(article.createdAt).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <Link
-                                            href={`/articles/${article.id}`}
-                                            className="text-blue-500 hover:text-blue-600"
-                                        >
-                                            <Eye size={20} />
-                                        </Link>
-                                        <Link
-                                            href={`/dashboard/edit/article/${article.id}`}
-                                            className="text-green-500 hover:text-green-600"
-                                        >
-                                            <Pencil size={20} />
-                                        </Link>
-                                        {/* Add delete functionality */}
-                                        <button
-                                            className="text-red-500 hover:text-red-600"
-                                        >
-                                            <Trash2 size={20} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <Tabs.Panel value="articles">
+                    <Table striped highlightOnHover>
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Title</Table.Th>
+                                <Table.Th>Status</Table.Th>
+                                <Table.Th>Created At</Table.Th>
+                                <Table.Th>Actions</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {contents
+                                .filter(c => c.type === 'article')
+                                .map((content) => (
+                                    <Table.Tr key={content.id}>
+                                        <Table.Td>{content.title}</Table.Td>
+                                        <Table.Td>{content.status}</Table.Td>
+                                        <Table.Td>
+                                            {content.createdAt.toLocaleDateString()}
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Group>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    leftSection={<Eye size={14} />}
+                                                >
+                                                    View
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="yellow"
+                                                    leftSection={<Pencil size={14} />}
+                                                >
+                                                    Edit
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="red"
+                                                    leftSection={<Trash size={14} />}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </Group>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                        </Table.Tbody>
+                    </Table>
+                </Tabs.Panel>
 
-                {/* Reviews Section */}
-                <div className="bg-white shadow-md rounded-lg p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-semibold">My Reviews</h2>
-                        <Link
-                            href="/dashboard/create/review"
-                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
-                        >
-                            New Review
-                        </Link>
-                    </div>
+                <Tabs.Panel value="reviews">
+                    <Table striped highlightOnHover>
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Title</Table.Th>
+                                <Table.Th>Status</Table.Th>
+                                <Table.Th>Created At</Table.Th>
+                                <Table.Th>Actions</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {contents
+                                .filter(c => c.type === 'review')
+                                .map((content) => (
+                                    <Table.Tr key={content.id}>
+                                        <Table.Td>{content.title}</Table.Td>
+                                        <Table.Td>{content.status}</Table.Td>
+                                        <Table.Td>
+                                            {content.createdAt.toLocaleDateString()}
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Group>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    leftSection={<Eye size={14} />}
+                                                >
+                                                    View
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="yellow"
+                                                    leftSection={<Pencil size={14} />}
+                                                >
+                                                    Edit
+                                                </Button>
+                                                <Button
+                                                    size="xs"
+                                                    variant="light"
+                                                    color="red"
+                                                    leftSection={<Trash size={14} />}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </Group>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                        </Table.Tbody>
+                    </Table>
+                </Tabs.Panel>
+            </Tabs>
 
-                    {user.reviews.length === 0 ? (
-                        <p className="text-gray-500">No reviews yet</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {user.reviews.map((review) => (
-                                <div
-                                    key={review.id}
-                                    className="border-b pb-4 flex justify-between items-center"
-                                >
-                                    <div>
-                                        <h3 className="font-medium">
-                                            {review.title}
-                                        </h3>
-                                        <p className="text-sm text-gray-500">
-                                            Rating: {review.rating}/5 | {new Date(review.createdAt).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <Link
-                                            href={`/dashboard/edit/review/${review.id}`}
-                                            className="text-green-500 hover:text-green-600"
-                                        >
-                                            <Pencil size={20} />
-                                        </Link>
-                                        <button
-                                            className="text-red-500 hover:text-red-600"
-                                        >
-                                            <Trash2 size={20} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+            <Modal
+                opened={opened}
+                onClose={close}
+                title="Create New Content"
+            >
+                <TextInput
+                    label="Title"
+                    placeholder="Enter content title"
+                    value={newContent.title}
+                    onChange={(event) => setNewContent({
+                        ...newContent,
+                        title: event.currentTarget.value
+                    })}
+                    mb="md"
+                />
+                <Select
+                    label="Content Type"
+                    value={newContent.type}
+                    onChange={(value) => setNewContent({
+                        ...newContent,
+                        type: value as 'article' | 'review'
+                    })}
+                    data={[
+                        { value: 'article', label: 'Article' },
+                        { value: 'review', label: 'Review' }
+                    ]}
+                    mb="md"
+                />
+                <Select
+                    label="Status"
+                    value={newContent.status}
+                    onChange={(value) => setNewContent({
+                        ...newContent,
+                        status: value as 'draft' | 'published'
+                    })}
+                    data={[
+                        { value: 'draft', label: 'Draft' },
+                        { value: 'published', label: 'Published' }
+                    ]}
+                    mb="md"
+                />
+                <Group justify="flex-end" mt="md">
+                    <Button variant="default" onClick={close}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleCreateContent}>
+                        Create
+                    </Button>
+                </Group>
+            </Modal>
         </div>
     );
 }
