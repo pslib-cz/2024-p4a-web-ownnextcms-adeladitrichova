@@ -1,34 +1,24 @@
 // src/libs/auth.ts
 import NextAuth from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import GitHub from "next-auth/providers/github"
+import { getServerSession } from "next-auth/next"
 import prisma from "./prisma"
 
-if (!process.env.AUTH_SECRET) {
-    throw new Error('AUTH_SECRET is not defined');
-}
-
-if (!process.env.AUTH_GITHUB_ID || !process.env.AUTH_GITHUB_SECRET) {
-    throw new Error('GitHub auth credentials are not defined');
-}
-
-export const {
-    handlers,
-    signIn,
-    signOut,
-    auth
-} = NextAuth({
+export const authOptions: NextAuthOptions = {
     providers: [
         GitHub({
-            clientId: process.env.AUTH_GITHUB_ID,
-            clientSecret: process.env.AUTH_GITHUB_SECRET,
+            clientId: process.env.AUTH_GITHUB_ID || "",
+            clientSecret: process.env.AUTH_GITHUB_SECRET || "",
         }),
     ],
     secret: process.env.AUTH_SECRET,
     callbacks: {
-        async signIn({ user, account, profile }) {
+        async signIn({ user }) {
             if (!user.email) return false;
 
             try {
+                // Create or update user in database
                 await prisma.user.upsert({
                     where: { email: user.email },
                     update: {
@@ -48,15 +38,24 @@ export const {
             }
         },
         async session({ session, token }) {
-            if (session?.user?.email) {
-                const dbUser = await prisma.user.findUnique({
+            if (session.user?.email) {
+                const user = await prisma.user.findUnique({
                     where: { email: session.user.email },
                 });
-                if (dbUser) {
-                    session.user.id = dbUser.id;
+
+                if (user) {
+                    session.user.id = user.id;
                 }
             }
             return session;
         },
+        async jwt({ token, user }) {
+            if (user) {
+                token.id = user.id;
+            }
+            return token;
+        }
     },
-});
+};
+
+export const getAuthSession = () => getServerSession(authOptions);

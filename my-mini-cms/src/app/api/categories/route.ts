@@ -1,11 +1,11 @@
 // src/app/api/categories/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/libs/auth';
+import { getAuthSession } from '@/libs/auth';
 import prisma from '@/libs/prisma';
 
 export async function GET(request: Request) {
     try {
-        const session = await auth();
+        const session = await getAuthSession();
         if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }

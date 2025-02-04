@@ -1,4 +1,4 @@
-// src/app/api/articles/route.ts
+// src/app/api/reviews/route.ts
 import { NextResponse } from 'next/server';
 import { getAuthSession } from '@/libs/auth';
 import prisma from '@/libs/prisma';
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const articles = await prisma.article.findMany({
+        const reviews = await prisma.review.findMany({
             where: {
                 author: {
                     email: session.user.email
@@ -22,20 +22,18 @@ export async function GET(request: Request) {
                         name: true,
                         email: true,
                     }
-                },
-                category: true,
-                tags: true,
+                }
             },
             orderBy: {
                 createdAt: 'desc'
             }
         });
 
-        return NextResponse.json(articles);
+        return NextResponse.json(reviews);
     } catch (error) {
-        console.error('GET articles error:', error);
+        console.error('GET reviews error:', error);
         return NextResponse.json(
-            { error: "Failed to fetch articles" },
+            { error: "Failed to fetch reviews" },
             { status: 500 }
         );
     }
@@ -53,44 +51,21 @@ export async function POST(request: Request) {
         });
 
         if (!user) {
-            // Create user if they don't exist
-            const newUser = await prisma.user.create({
-                data: {
-                    email: session.user.email,
-                    name: session.user.name || '',
-                    image: session.user.image || '',
-                }
-            });
-            user = newUser;
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const json = await request.json();
-        const { title, content, categoryId, tags = [], published = false } = json;
+        const { title, content, rating = 0, published = false } = json;
 
-        // Create default category if none exists
-        let category = await prisma.category.findFirst();
-        if (!category) {
-            category = await prisma.category.create({
-                data: { name: 'General' }
-            });
-        }
-
-        const article = await prisma.article.create({
+        const review = await prisma.review.create({
             data: {
                 title,
                 content,
+                rating,
                 published,
                 author: {
                     connect: { id: user.id }
-                },
-                category: {
-                    connect: { id: categoryId || category.id }
-                },
-                ...(tags.length > 0 && {
-                    tags: {
-                        connect: tags.map((tagId: string) => ({ id: tagId }))
-                    }
-                })
+                }
             },
             include: {
                 author: {
@@ -98,17 +73,15 @@ export async function POST(request: Request) {
                         name: true,
                         email: true,
                     }
-                },
-                category: true,
-                tags: true,
+                }
             }
         });
 
-        return NextResponse.json(article);
+        return NextResponse.json(review);
     } catch (error) {
-        console.error('POST article error:', error);
+        console.error('POST review error:', error);
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to create article" },
+            { error: error instanceof Error ? error.message : "Failed to create review" },
             { status: 500 }
         );
     }

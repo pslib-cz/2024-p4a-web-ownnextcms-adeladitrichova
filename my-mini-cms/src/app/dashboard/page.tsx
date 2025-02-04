@@ -1,10 +1,12 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import {
+    Container,
+    Paper,
+    Title,
     Tabs,
-    Table,
     Button,
     Group,
     Text,
@@ -12,22 +14,15 @@ import {
     TextInput,
     Textarea,
     Select,
-    Notification,
     MultiSelect,
-    Switch,
     LoadingOverlay,
-    Paper,
+    Switch,
+    Notification,
+    Table,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { useRouter } from 'next/navigation';
-import {
-    Plus,
-    Pencil,
-    Trash,
-    Eye,
-    Check,
-    X
-} from 'lucide-react';
+import {useRouter} from 'next/navigation';
+import {useDisclosure} from '@mantine/hooks';
+import {Eye, Pencil, Trash} from "lucide-react";
 
 type Content = {
     id: string;
@@ -51,22 +46,22 @@ type Tag = {
     name: string;
 };
 
-export default function ContentDashboard() {
-    const [opened, { open, close }] = useDisclosure(false);
-    const [editModalOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
+export default function DashboardPage() {
+    const [activeTab, setActiveTab] = useState<string | null>('articles');
     const [contents, setContents] = useState<Content[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [tags, setTags] = useState<Tag[]>([]);
-    const [activeTab, setActiveTab] = useState<string | null>('articles');
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
+    const [opened, {open, close}] = useDisclosure(false);
+    const [editModalOpened, {open: openEdit, close: closeEdit}] = useDisclosure(false);
     const router = useRouter();
 
     const [notification, setNotification] = useState<{
         show: boolean;
         message: string;
         type: 'success' | 'error';
-    }>({ show: false, message: '', type: 'success' });
+    }>({show: false, message: '', type: 'success'});
 
     const [newContent, setNewContent] = useState({
         title: '',
@@ -86,28 +81,46 @@ export default function ContentDashboard() {
         fetchTags();
     }, []);
 
-    const fetchContents = async () => {
-        setPageLoading(true);
-        try {
-            const articlesRes = await fetch('/api/articles');
-            if (!articlesRes.ok) {
-                const error = await articlesRes.json();
-                throw new Error(error.error || 'Failed to fetch articles');
-            }
-            const articles = await articlesRes.json();
+    const showNotification = (message: string, type: 'success' | 'error') => {
+        setNotification({show: true, message, type});
+        setTimeout(() => {
+            setNotification(prev => ({...prev, show: false}));
+        }, 3000);
+    };
 
-            // For now, we'll only handle articles until we set up reviews
-            const formattedContents = articles.map((article: any) => ({
-                ...article,
-                type: 'article',
-                status: article.published ? 'published' : 'draft',
-                createdAt: new Date(article.createdAt)
-            }));
+    const fetchContents = async () => {
+        try {
+            const [articlesRes, reviewsRes] = await Promise.all([
+                fetch('/api/articles'),
+                fetch('/api/reviews').catch(() => ({ ok: true, json: () => Promise.resolve([]) }))
+            ]);
+
+            if (!articlesRes.ok) {
+                throw new Error('Failed to fetch articles');
+            }
+
+            const articles = await articlesRes.json();
+            const reviews = reviewsRes.ok ? await reviewsRes.json() : [];
+
+            const formattedContents = [
+                ...articles.map((article: any) => ({
+                    ...article,
+                    type: 'article',
+                    status: article.published ? 'published' : 'draft',
+                    createdAt: new Date(article.createdAt)
+                })),
+                ...reviews.map((review: any) => ({
+                    ...review,
+                    type: 'review',
+                    status: review.published ? 'published' : 'draft',
+                    createdAt: new Date(review.createdAt)
+                }))
+            ];
 
             setContents(formattedContents);
         } catch (error) {
-            console.error('Fetch contents error:', error);
-            showNotification(error instanceof Error ? error.message : 'Error fetching content', 'error');
+            console.error('Error fetching contents:', error);
+            showNotification('Failed to fetch content', 'error');
         } finally {
             setPageLoading(false);
         }
@@ -116,34 +129,32 @@ export default function ContentDashboard() {
     const fetchCategories = async () => {
         try {
             const response = await fetch('/api/categories');
+            if (!response.ok) throw new Error('Failed to fetch categories');
             const data = await response.json();
             setCategories(data);
         } catch (error) {
             console.error('Error fetching categories:', error);
+            showNotification('Failed to fetch categories', 'error');
         }
     };
 
     const fetchTags = async () => {
         try {
             const response = await fetch('/api/tags');
+            if (!response.ok) throw new Error('Failed to fetch tags');
             const data = await response.json();
             setTags(data);
         } catch (error) {
             console.error('Error fetching tags:', error);
+            showNotification('Failed to fetch tags', 'error');
         }
-    };
-
-    const showNotification = (message: string, type: 'success' | 'error') => {
-        setNotification({ show: true, message, type });
-        setTimeout(() => {
-            setNotification(prev => ({ ...prev, show: false }));
-        }, 3000);
     };
 
     const handleCreateContent = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/articles', {
+            const endpoint = newContent.type === 'article' ? '/api/articles' : '/api/reviews';
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -154,6 +165,7 @@ export default function ContentDashboard() {
                     published: newContent.status === 'published',
                     categoryId: newContent.categoryId,
                     tags: newContent.tags,
+                    ...(newContent.type === 'review' && {rating: newContent.rating}),
                 }),
             });
 
@@ -162,14 +174,16 @@ export default function ContentDashboard() {
                 throw new Error(error.error || 'Failed to create content');
             }
 
-            const created = await response.json();
             await fetchContents();
             showNotification('Content created successfully!', 'success');
             close();
             resetForm();
         } catch (error) {
-            console.error('Create content error:', error);
-            showNotification(error instanceof Error ? error.message : 'Error creating content', 'error');
+            console.error('Error creating content:', error);
+            showNotification(
+                error instanceof Error ? error.message : 'Error creating content',
+                'error'
+            );
         } finally {
             setLoading(false);
         }
@@ -195,12 +209,13 @@ export default function ContentDashboard() {
                     published: editingContent.status === 'published',
                     categoryId: editingContent.categoryId,
                     tags: editingContent.tags,
-                    ...(editingContent.type === 'review' && { rating: editingContent.rating }),
+                    ...(editingContent.type === 'review' && {rating: editingContent.rating}),
                 }),
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update content');
             }
 
             await fetchContents();
@@ -218,7 +233,7 @@ export default function ContentDashboard() {
     };
 
     const handleDelete = async (id: string, type: 'article' | 'review') => {
-        if (!window.confirm('Are you sure you want to delete this content?')) return;
+        if (!confirm('Are you sure you want to delete this content?')) return;
 
         try {
             const endpoint = type === 'article' ? `/api/articles/${id}` : `/api/reviews/${id}`;
@@ -227,7 +242,8 @@ export default function ContentDashboard() {
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to delete content');
             }
 
             await fetchContents();
@@ -253,13 +269,13 @@ export default function ContentDashboard() {
         });
     };
 
-    const ContentForm = ({ content, setContent, isEdit = false }: any) => (
+    const ContentForm = ({content, setContent, isEdit = false}: any) => (
         <>
             <TextInput
                 label="Title"
                 placeholder="Enter title"
                 value={content.title}
-                onChange={(e) => setContent({ ...content, title: e.target.value })}
+                onChange={(e) => setContent({...content, title: e.target.value})}
                 required
                 mb="md"
             />
@@ -267,7 +283,7 @@ export default function ContentDashboard() {
                 label="Content"
                 placeholder="Enter content"
                 value={content.content}
-                onChange={(e) => setContent({ ...content, content: e.target.value })}
+                onChange={(e) => setContent({...content, content: e.target.value})}
                 required
                 minRows={3}
                 mb="md"
@@ -275,26 +291,26 @@ export default function ContentDashboard() {
             <Select
                 label="Category"
                 placeholder="Select category"
-                data={categories.map(cat => ({ value: cat.id, label: cat.name }))}
+                data={categories.map(cat => ({value: cat.id, label: cat.name}))}
                 value={content.categoryId}
-                onChange={(value) => setContent({ ...content, categoryId: value })}
+                onChange={(value) => setContent({...content, categoryId: value})}
                 mb="md"
             />
             <MultiSelect
                 label="Tags"
                 placeholder="Select tags"
-                data={tags.map(tag => ({ value: tag.id, label: tag.name }))}
+                data={tags.map(tag => ({value: tag.id, label: tag.name}))}
                 value={content.tags}
-                onChange={(value) => setContent({ ...content, tags: value })}
+                onChange={(value) => setContent({...content, tags: value})}
                 mb="md"
             />
             {content.type === 'review' && (
                 <Select
                     label="Rating"
                     placeholder="Select rating"
-                    data={[1,2,3,4,5].map(n => ({ value: n.toString(), label: `${n} stars` }))}
-                    value={content.rating.toString()}
-                    onChange={(value) => setContent({ ...content, rating: parseInt(value || '0') })}
+                    data={[1, 2, 3, 4, 5].map(n => ({value: n.toString(), label: `${n} stars`}))}
+                    value={content.rating?.toString()}
+                    onChange={(value) => setContent({...content, rating: parseInt(value || '0')})}
                     mb="md"
                 />
             )}
@@ -311,225 +327,226 @@ export default function ContentDashboard() {
     );
 
     return (
-        <Paper p="md" radius="md">
-            <LoadingOverlay visible={pageLoading} />
+        <Container size="xl">
+            <Paper p="md" radius="md" style={{position: 'relative'}}>
+                <LoadingOverlay visible={pageLoading}/>
 
-            {notification.show && (
-                <Notification
-                    color={notification.type === 'success' ? 'green' : 'red'}
-                    title={notification.type === 'success' ? 'Success' : 'Error'}
-                    icon={notification.type === 'success' ? <Check size={18} /> : <X size={18} />}
-                    onClose={() => setNotification(prev => ({ ...prev, show: false }))}
-                    className="fixed top-4 right-4 z-50"
-                >
-                    {notification.message}
-                </Notification>
-            )}
-
-            <Group mb="lg">
-                <Text size="xl">Content Management</Text>
-                <Button
-                    onClick={open}
-                >
-                    Create New Content
-                </Button>
-            </Group>
-
-            <Tabs value={activeTab} onChange={setActiveTab}>
-                <Tabs.List>
-                    <Tabs.Tab value="articles">Articles</Tabs.Tab>
-                    <Tabs.Tab value="reviews">Reviews</Tabs.Tab>
-                </Tabs.List>
-
-                <Tabs.Panel value="articles">
-                    <Table striped highlightOnHover mt="md">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Created</Table.Th>
-                                <Table.Th>Actions</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {contents
-                                .filter(c => c.type === 'article')
-                                .map((content) => (
-                                    <Table.Tr key={content.id}>
-                                        <Table.Td>{content.title}</Table.Td>
-                                        <Table.Td>
-                                            <Text color={content.status === 'published' ? 'green' : 'orange'}>
-                                                {content.status}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>{content.createdAt.toLocaleDateString()}</Table.Td>
-                                        <Table.Td>
-                                            <Group>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    onClick={() => router.push(`/articles/${content.id}`)}
-                                                >
-                                                    <Eye size={16} />
-                                                </Button>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={() => {
-                                                        setEditingContent(content);
-                                                        openEdit();
-                                                    }}
-                                                >
-                                                    <Pencil size={16} />
-                                                </Button>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    color="red"
-                                                    onClick={() => handleDelete(content.id, 'article')}
-                                                >
-                                                    <Trash size={16} />
-                                                </Button>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                        </Table.Tbody>
-                    </Table>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="reviews">
-                    <Table striped highlightOnHover mt="md">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Rating</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Created</Table.Th>
-                                <Table.Th>Actions</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {contents
-                                .filter(c => c.type === 'review')
-                                .map((content) => (
-                                    <Table.Tr key={content.id}>
-                                        <Table.Td>{content.title}</Table.Td>
-                                        <Table.Td>{content.rating} / 5</Table.Td>
-                                        <Table.Td>
-                                            <Text color={content.status === 'published' ? 'green' : 'orange'}>
-                                                {content.status}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>{content.createdAt.toLocaleDateString()}</Table.Td>
-                                        <Table.Td>
-                                            <Group>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    onClick={() => router.push(`/reviews/${content.id}`)}
-                                                >
-                                                    <Eye size={16} />
-                                                </Button>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={() => {
-                                                        setEditingContent(content);
-                                                        openEdit();
-                                                    }}
-                                                >
-                                                    <Pencil size={16} />
-                                                </Button>
-                                                <Button
-                                                    size="xs"
-                                                    variant="light"
-                                                    color="red"
-                                                    onClick={() => handleDelete(content.id, 'review')}
-                                                >
-                                                    <Trash size={16} />
-                                                </Button>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                        </Table.Tbody>
-                    </Table>
-                </Tabs.Panel>
-            </Tabs>
-
-            {/* Create Modal */}
-            <Modal
-                opened={opened}
-                onClose={() => {
-                    close();
-                    resetForm();
-                }}
-                title="Create New Content"
-                size="lg"
-            >
-                <ContentForm
-                    content={newContent}
-                    setContent={setNewContent}
-                />
-                <Group mt="md">
-                    <Button
-                        variant="subtle"
-                        onClick={() => {
-                            close();
-                            resetForm();
-                        }}
+                {notification.show && (
+                    <Notification
+                        title={notification.type === 'success' ? 'Success' : 'Error'}
+                        color={notification.type === 'success' ? 'green' : 'red'}
+                        onClose={() => setNotification(prev => ({...prev, show: false}))}
+                        className="fixed top-4 right-4 z-50"
                     >
-                        Cancel
-                    </Button>
+                        {notification.message}
+                    </Notification>
+                )}
+
+                <Group mb="lg">
+                    <Title order={2}>Content Management</Title>
                     <Button
-                        onClick={handleCreateContent}
-                        loading={loading}
+                        onClick={open}
                     >
-                        Create
+                        Create New Content
                     </Button>
                 </Group>
-            </Modal>
 
-            {/* Edit Modal */}
-            <Modal
-                opened={editModalOpened}
-                onClose={() => {
-                    closeEdit();
-                    setEditingContent(null);
-                }}
-                title="Edit Content"
-                size="lg"
-            >
-                {editingContent && (
-                    <>
-                        <ContentForm
-                            content={editingContent}
-                            setContent={setEditingContent}
-                            isEdit={true}
-                        />
-                        <Group mt="md">
-                            <Button
-                                variant="subtle"
-                                onClick={() => {
-                                    closeEdit();
-                                    setEditingContent(null);
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleUpdateContent}
-                                loading={loading}
-                            >
-                                Update
-                            </Button>
-                        </Group>
-                    </>
-                )}
-            </Modal>
-        </Paper>
+                <Tabs value={activeTab} onChange={setActiveTab}>
+                    <Tabs.List>
+                        <Tabs.Tab value="articles">Articles</Tabs.Tab>
+                        <Tabs.Tab value="reviews">Reviews</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="articles">
+                        <Table mt="md">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Title</Table.Th>
+                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>Created</Table.Th>
+                                    <Table.Th>Actions</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {contents
+                                    .filter(c => c.type === 'article')
+                                    .map((content) => (
+                                        <Table.Tr key={content.id}>
+                                            <Table.Td>{content.title}</Table.Td>
+                                            <Table.Td>
+                                                <Text color={content.status === 'published' ? 'green' : 'orange'}>
+                                                    {content.status}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>{new Date(content.createdAt).toLocaleDateString()}</Table.Td>
+                                            <Table.Td>
+                                                <Group>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        onClick={() => router.push(`/articles/${content.id}`)}
+                                                    >
+                                                        <Eye />
+                                                    </Button>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        color="yellow"
+                                                        onClick={() => {
+                                                            setEditingContent(content);
+                                                            openEdit();
+                                                        }}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        color="red"
+                                                        onClick={() => handleDelete(content.id, 'article')}
+                                                    >
+                                                        <Trash size={16}/>
+                                                    </Button>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="reviews">
+                        <Table mt="md">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Title</Table.Th>
+                                    <Table.Th>Rating</Table.Th>
+                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>Created</Table.Th>
+                                    <Table.Th>Actions</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {contents
+                                    .filter(c => c.type === 'review')
+                                    .map((content) => (
+                                        <Table.Tr key={content.id}>
+                                            <Table.Td>{content.title}</Table.Td>
+                                            <Table.Td>{content.rating} / 5</Table.Td>
+                                            <Table.Td>
+                                                <Text color={content.status === 'published' ? 'green' : 'orange'}>
+                                                    {content.status}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>{new Date(content.createdAt).toLocaleDateString()}</Table.Td>
+                                            <Table.Td>
+                                                <Group>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        onClick={() => router.push(`/reviews/${content.id}`)}
+                                                    >
+                                                        <Eye size={16}/>
+                                                    </Button>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        color="yellow"
+                                                        onClick={() => {
+                                                            setEditingContent(content);
+                                                            openEdit();
+                                                        }}
+                                                    >
+                                                        <Pencil size={16}/>
+                                                    </Button>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="light"
+                                                        color="red"
+                                                        onClick={() => handleDelete(content.id, 'review')}
+                                                    >
+                                                        <Trash/>
+                                                    </Button>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Tabs.Panel>
+                </Tabs>
+
+                {/* Create Modal */}
+                <Modal
+                    opened={opened}
+                    onClose={() => {
+                        close();
+                        resetForm();
+                    }}
+                    title="Create New Content"
+                    size="lg"
+                >
+                    <ContentForm
+                        content={newContent}
+                        setContent={setNewContent}
+                    />
+                    <Group mt="md">
+                        <Button
+                            variant="subtle"
+                            onClick={() => {
+                                close();
+                                resetForm();
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateContent}
+                            loading={loading}
+                        >
+                            Create
+                        </Button>
+                    </Group>
+                </Modal>
+
+                {/* Edit Modal */}
+                <Modal
+                    opened={editModalOpened}
+                    onClose={() => {
+                        closeEdit();
+                        setEditingContent(null);
+                    }}
+                    title="Edit Content"
+                    size="lg"
+                >
+                    {editingContent && (
+                        <>
+                            <ContentForm
+                                content={editingContent}
+                                setContent={setEditingContent}
+                                isEdit={true}
+                            />
+                            <Group mt="md">
+                                <Button
+                                    variant="subtle"
+                                    onClick={() => {
+                                        closeEdit();
+                                        setEditingContent(null);
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleUpdateContent}
+                                    loading={loading}
+                                >
+                                    Update
+                                </Button>
+                            </Group>
+                        </>
+                    )}
+                </Modal>
+            </Paper>
+        </Container>
     );
 }

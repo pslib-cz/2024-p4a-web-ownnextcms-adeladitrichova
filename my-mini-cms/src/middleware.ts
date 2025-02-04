@@ -1,18 +1,12 @@
 // src/middleware.ts
-import { auth } from "@/libs/auth"
+import { withAuth } from "next-auth/middleware";
 
-export default auth((req) => {
-    const isLoggedIn = !!req.auth
-    const isOnDashboard = req.nextUrl.pathname.startsWith('/dashboard')
+export default withAuth({
+    callbacks: {
+        authorized: ({ token }) => !!token,
+    },
+});
 
-    if (isOnDashboard && !isLoggedIn) {
-        return Response.redirect(new URL('/api/auth/signin', req.nextUrl))
-    }
-
-    return null
-})
-
-// Optionally configure middleware matcher
 export const config = {
-    matcher: ['/dashboard/:path*']
-}
+    matcher: ["/dashboard/:path*"],
+};
