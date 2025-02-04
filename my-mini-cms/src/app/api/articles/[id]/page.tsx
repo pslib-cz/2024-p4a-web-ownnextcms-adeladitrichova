@@ -1,38 +1,66 @@
 // src/app/articles/[id]/page.tsx
 import prisma from '@/libs/prisma';
-import { notFound } from 'next/navigation';
+import {notFound} from 'next/navigation';
 import styles from '../articles.module.css';
+import {Metadata} from 'next';
 
 type ArticleDetailProps = {
     params: { id: string };
 };
 
-export async function generateMetadata({ params }: ArticleDetailProps) {
-    const article = await prisma.article.findUnique({
-        where: { id: params.id, published: true },
-        include: { author: true },
-    });
+export async function generateMetadata({
+                                           params
+                                       }: ArticleDetailProps): Promise<Metadata> {
+    try {
+        const article = await prisma.article.findUnique({
+            where: {id: params.id, published: true},
+            include: {
+                author: true,
+                tags: true,
+                category: true
+            },
+        });
 
-    if (!article) {
+        if (!article) {
+            return {
+                title: 'Article Not Found',
+                description: 'The requested article does not exist',
+            };
+        }
+
         return {
-            title: 'Article Not Found',
-            description: 'The requested article does not exist',
+            title: article.title,
+            description: article.content.slice(0, 160), // First 160 characters
+            authors: [{name: article.author.name ?? 'Anonymous'}],
+            keywords: article.tags.map(tag => tag.name),
+            openGraph: {
+                title: article.title,
+                description: article.content.slice(0, 160),
+                type: 'article',
+                publishedTime: article.createdAt.toISOString(),
+                authors: [article.author.name ?? 'Anonymous'],
+                tags: article.tags.map(tag => tag.name),
+            },
+            twitter: {
+                card: 'summary_large_image',
+                title: article.title,
+                description: article.content.slice(0, 160),
+            },
+            alternates: {
+                canonical: `/articles/${article.id}`,
+            },
+        };
+    } catch (error) {
+        return {
+            title: 'Article Error',
+            description: 'Error loading article metadata',
         };
     }
-
-    return {
-        title: article.title,
-        description: `Article by ${article.author.name ?? 'Unknown Author'}`,
-        openGraph: {
-            title: article.title,
-            description: article.content.slice(0, 160),
-        },
-    };
 }
 
-export default async function ArticleDetailPage({ params }: ArticleDetailProps) {
+export default async function ArticleDetailPage({params}: ArticleDetailProps) {
     const article = await prisma.article.findUnique({
-        where: { id: params.id, published: true },
+        where: {id: params.id, published: true},
         include: {
             author: true,
             tags: true,
