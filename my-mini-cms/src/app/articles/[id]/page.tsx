@@ -3,98 +3,58 @@ import { getAuthSession } from '@/libs/auth';
 import prisma from '@/libs/prisma';
 import { notFound } from 'next/navigation';
 import { Card, Container, Title, Text, Badge, Stack, Group } from '@mantine/core';
-import { Metadata } from 'next';
 
-// Fixed Props type for Next.js 15.1.6
-interface PageProps {
-    params: { id: string };
+type PageProps = {
+    params: Promise<{ id: string }>;
+};
+
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: PageProps) {
+    const resolvedParams = await params;
+    const article = await prisma.article.findUnique({
+        where: { id: resolvedParams.id },
+        include: { author: true }
+    });
+
+    return {
+        title: article?.title || 'Article Not Found'
+    };
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-     const id = await params.id;
-
-    try {
-        const article = await prisma.article.findUnique({
-            where: {
-                id,
-                published: true
-            },
-            include: {
-                author: true,
-                category: true,
-                tags: true,
-            },
-        });
-
-        if (!article) {
-            return {
-                title: 'Article Not Found',
-                description: 'The requested article could not be found',
-            };
-        }
-
-        return {
-            title: article.title,
-            description: article.content.slice(0, 160) + '...',
-            authors: [{ name: article.author.name || 'Anonymous' }],
-            keywords: article.tags.map(tag => tag.name),
-        };
-    } catch (error) {
-        return {
-            title: 'Error',
-            description: 'Error loading article',
-        };
-    }
-}
-
-export default async function ArticlePage({ params }: PageProps) {
+export default async function Page({ params }: PageProps) {
+    const resolvedParams = await params;
     const session = await getAuthSession();
     const article = await prisma.article.findUnique({
         where: {
-            id: params.id,
-            ...(session?.user ? {} : { published: true }), // Only show published articles to non-logged in users
+            id: resolvedParams.id,
+            ...(session?.user ? {} : { published: true })
         },
         include: {
             author: true,
             category: true,
-            tags: true,
-        },
+            tags: true
+        }
     });
 
-    if (!article) {
-        notFound();
-    }
+    if (!article) notFound();
 
     return (
         <Container size="lg" py="xl">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Card shadow="sm" p="lg" radius="md" withBorder>
                 <Stack>
                     <Title order={1}>{article.title}</Title>
-
                     <Group>
-                        <Group>
-                            <Text size="sm" color="dimmed">By</Text>
-                            <Text size="sm">{article.author.name || 'Anonymous'}</Text>
-                        </Group>
-
-                        <Text size="sm" color="dimmed">
-                            {new Date(article.createdAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            })}
-                        </Text>
+                        <Text fw={500}>{article.author.name || 'Anonymous'}</Text>
+                        <Text c="dimmed">{new Date(article.createdAt).toLocaleDateString()}</Text>
                     </Group>
-
                     <Group>
                         <Badge color="blue">{article.category.name}</Badge>
                         {article.tags.map(tag => (
                             <Badge key={tag.id} color="gray">{tag.name}</Badge>
                         ))}
                     </Group>
-
                     <Text>{article.content}</Text>
-
                     {session?.user?.email === article.author.email && !article.published && (
                         <Badge color="yellow" size="lg">Draft</Badge>
                     )}
