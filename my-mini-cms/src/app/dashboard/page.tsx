@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import {useEffect, useState} from 'react';
+import { useEffect, useState } from 'react';
 import {
     Container,
     Paper,
@@ -20,8 +20,8 @@ import {
     Notification,
     Table,
 } from '@mantine/core';
-import {useRouter} from 'next/navigation';
-import {useDisclosure} from '@mantine/hooks';
+import { useRouter } from 'next/navigation';
+import { useDisclosure } from '@mantine/hooks';
 import {Eye, Pencil, Trash} from "lucide-react";
 
 type Content = {
@@ -32,7 +32,7 @@ type Content = {
     status: 'draft' | 'published';
     createdAt: Date;
     categoryId?: string;
-    tags?: string[];
+    tags?: any[];
     rating?: number;
 };
 
@@ -53,15 +53,15 @@ export default function DashboardPage() {
     const [tags, setTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
-    const [opened, {open, close}] = useDisclosure(false);
-    const [editModalOpened, {open: openEdit, close: closeEdit}] = useDisclosure(false);
+    const [opened, { open, close }] = useDisclosure(false);
+    const [editModalOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
     const router = useRouter();
 
     const [notification, setNotification] = useState<{
         show: boolean;
         message: string;
         type: 'success' | 'error';
-    }>({show: false, message: '', type: 'success'});
+    }>({ show: false, message: '', type: 'success' });
 
     const [newContent, setNewContent] = useState({
         title: '',
@@ -82,9 +82,9 @@ export default function DashboardPage() {
     }, []);
 
     const showNotification = (message: string, type: 'success' | 'error') => {
-        setNotification({show: true, message, type});
+        setNotification({ show: true, message, type });
         setTimeout(() => {
-            setNotification(prev => ({...prev, show: false}));
+            setNotification(prev => ({ ...prev, show: false }));
         }, 3000);
     };
 
@@ -165,7 +165,7 @@ export default function DashboardPage() {
                     published: newContent.status === 'published',
                     categoryId: newContent.categoryId,
                     tags: newContent.tags,
-                    ...(newContent.type === 'review' && {rating: newContent.rating}),
+                    ...(newContent.type === 'review' && { rating: newContent.rating }),
                 }),
             });
 
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                     published: editingContent.status === 'published',
                     categoryId: editingContent.categoryId,
                     tags: editingContent.tags,
-                    ...(editingContent.type === 'review' && {rating: editingContent.rating}),
+                    ...(editingContent.type === 'review' && { rating: editingContent.rating }),
                 }),
             });
 
@@ -221,6 +221,7 @@ export default function DashboardPage() {
             await fetchContents();
             showNotification('Content updated successfully!', 'success');
             closeEdit();
+            setEditingContent(null);
         } catch (error) {
             console.error('Error updating content:', error);
             showNotification(
@@ -269,73 +270,89 @@ export default function DashboardPage() {
         });
     };
 
-    const ContentForm = ({content, setContent, isEdit = false}: any) => (
-        <>
-            <TextInput
-                label="Title"
-                placeholder="Enter title"
-                value={content.title}
-                onChange={(e) => setContent({...content, title: e.target.value})}
-                required
-                mb="md"
-            />
-            <Textarea
-                label="Content"
-                placeholder="Enter content"
-                value={content.content}
-                onChange={(e) => setContent({...content, content: e.target.value})}
-                required
-                minRows={3}
-                mb="md"
-            />
-            <Select
-                label="Category"
-                placeholder="Select category"
-                data={categories.map(cat => ({value: cat.id, label: cat.name}))}
-                value={content.categoryId}
-                onChange={(value) => setContent({...content, categoryId: value})}
-                mb="md"
-            />
-            <MultiSelect
-                label="Tags"
-                placeholder="Select tags"
-                data={tags.map(tag => ({value: tag.id, label: tag.name}))}
-                value={content.tags}
-                onChange={(value) => setContent({...content, tags: value})}
-                mb="md"
-            />
-            {content.type === 'review' && (
-                <Select
-                    label="Rating"
-                    placeholder="Select rating"
-                    data={[1, 2, 3, 4, 5].map(n => ({value: n.toString(), label: `${n} stars`}))}
-                    value={content.rating?.toString()}
-                    onChange={(value) => setContent({...content, rating: parseInt(value || '0')})}
+    const ContentForm = ({ content, setContent, isEdit = false }: any) => {
+        // Convert tags data for MultiSelect
+        const formattedTags = tags.map(tag => ({
+            value: tag.id,
+            label: tag.name
+        }));
+
+        // Ensure content.tags is always an array of strings
+        const selectedTags = Array.isArray(content.tags)
+            ? content.tags.map((tag: { id: any; }) => (typeof tag === 'object' ? tag.id : tag))
+            : [];
+
+        return (
+            <>
+                <TextInput
+                    label="Title"
+                    placeholder="Enter title"
+                    value={content.title}
+                    onChange={(e) => setContent({ ...content, title: e.target.value })}
+                    required
                     mb="md"
                 />
-            )}
-            <Switch
-                label="Published"
-                checked={content.status === 'published'}
-                onChange={(e) => setContent({
-                    ...content,
-                    status: e.currentTarget.checked ? 'published' : 'draft'
-                })}
-                mb="md"
-            />
-        </>
-    );
+                <Textarea
+                    label="Content"
+                    placeholder="Enter content"
+                    value={content.content}
+                    onChange={(e) => setContent({ ...content, content: e.target.value })}
+                    required
+                    minRows={3}
+                    mb="md"
+                />
+                <Select
+                    label="Category"
+                    placeholder="Select category"
+                    data={categories.map(cat => ({ value: cat.id, label: cat.name }))}
+                    value={content.categoryId}
+                    onChange={(value) => setContent({ ...content, categoryId: value })}
+                    mb="md"
+                />
+                <MultiSelect
+                    label="Tags"
+                    placeholder="Select tags"
+                    data={formattedTags}
+                    value={selectedTags}
+                    onChange={(value) => setContent({ ...content, tags: value })}
+                    mb="md"
+                />
+                {content.type === 'review' && (
+                    <Select
+                        label="Rating"
+                        placeholder="Select rating"
+                        data={[1,2,3,4,5].map(n => ({ value: n.toString(), label: `${n} stars` }))}
+                        value={content.rating?.toString()}
+                        onChange={(value) => setContent({
+                            ...content,
+                            rating: value ? parseInt(value) : 0
+                        })}
+                        mb="md"
+                    />
+                )}
+                <Switch
+                    label="Published"
+                    checked={content.status === 'published'}
+                    onChange={(e) => setContent({
+                        ...content,
+                        status: e.currentTarget.checked ? 'published' : 'draft'
+                    })}
+                    mb="md"
+                />
+            </>
+        );
+    };
 
     return (
         <Container size="xl">
-            <Paper p="md" radius="md" style={{position: 'relative'}}>
-                <LoadingOverlay visible={pageLoading}/>
+            <Paper p="md" radius="md" style={{ position: 'relative' }}>
+                <LoadingOverlay visible={pageLoading} />
 
                 {notification.show && (
                     <Notification
                         title={notification.type === 'success' ? 'Success' : 'Error'}
                         color={notification.type === 'success' ? 'green' : 'red'}
-                        onClose={() => setNotification(prev => ({...prev, show: false}))}
+                        onClose={() => setNotification(prev => ({ ...prev, show: false }))}
                         className="fixed top-4 right-4 z-50"
                     >
                         {notification.message}
@@ -386,18 +403,25 @@ export default function DashboardPage() {
                                                         variant="light"
                                                         onClick={() => router.push(`/articles/${content.id}`)}
                                                     >
-                                                        <Eye />
+                                                        <Eye size={16} />
                                                     </Button>
                                                     <Button
                                                         size="xs"
                                                         variant="light"
                                                         color="yellow"
                                                         onClick={() => {
-                                                            setEditingContent(content);
+                                                            // Format the content before setting it for editing
+                                                            const formattedContent = {
+                                                                ...content,
+                                                                tags: content.tags?.map(tag =>
+                                                                    typeof tag === 'object' ? tag.id : tag
+                                                                ) || []
+                                                            };
+                                                            setEditingContent(formattedContent);
                                                             openEdit();
                                                         }}
                                                     >
-                                                        <Pencil />
+                                                        <Pencil size={16} />
                                                     </Button>
                                                     <Button
                                                         size="xs"
@@ -405,7 +429,7 @@ export default function DashboardPage() {
                                                         color="red"
                                                         onClick={() => handleDelete(content.id, 'article')}
                                                     >
-                                                        <Trash size={16}/>
+                                                        <Trash size={16} />
                                                     </Button>
                                                 </Group>
                                             </Table.Td>
@@ -446,7 +470,7 @@ export default function DashboardPage() {
                                                         variant="light"
                                                         onClick={() => router.push(`/reviews/${content.id}`)}
                                                     >
-                                                        <Eye size={16}/>
+                                                        <Eye/>
                                                     </Button>
                                                     <Button
                                                         size="xs"
@@ -457,7 +481,7 @@ export default function DashboardPage() {
                                                             openEdit();
                                                         }}
                                                     >
-                                                        <Pencil size={16}/>
+                                                        <Pencil/>
                                                     </Button>
                                                     <Button
                                                         size="xs"
