@@ -6,15 +6,36 @@ import prisma from '@/libs/prisma';
 export async function GET(request: Request) {
     try {
         const session = await getAuthSession();
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        // If user is logged in, show their articles (published and drafts)
+        if (session?.user?.email) {
+            const articles = await prisma.article.findMany({
+                where: {
+                    author: {
+                        email: session.user.email
+                    }
+                },
+                include: {
+                    author: {
+                        select: {
+                            name: true,
+                            email: true,
+                        }
+                    },
+                    category: true,
+                    tags: true,
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            });
+            return NextResponse.json(articles);
         }
 
+        // If user is not logged in, show only published articles
         const articles = await prisma.article.findMany({
             where: {
-                author: {
-                    email: session.user.email
-                }
+                published: true
             },
             include: {
                 author: {

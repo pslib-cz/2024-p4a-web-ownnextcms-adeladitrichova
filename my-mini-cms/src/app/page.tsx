@@ -1,12 +1,12 @@
-import LoggedUser from "@/components/LoggedUser";
-import SignButton from "@/components/SignButton";
-import SignOutButton from "@/components/SignOutButton";
+// src/app/page.tsx
+import styles from './home.module.css';
 
 export default function Home() {
     return (
-        <div
-            className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-            <div>HELLO</div>
-        </div>
+        <main className={styles.container}>
+            <div className={styles.welcomeText}>Welcome to the</div>
+            <h1 className={styles.title}>Article World</h1>
+            <h2 className={styles.subtitle}>Journalist incubator</h2>
+        </main>
     );
 }

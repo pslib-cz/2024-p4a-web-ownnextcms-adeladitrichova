@@ -1,11 +1,11 @@
 // prisma/seed.ts
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prismaSeed = new PrismaClient();
 
 async function main() {
     // Categories
     for (const category of ['Technology', 'Travel', 'Food', 'Lifestyle']) {
-        await prisma.category.upsert({
+        await prismaSeed.category.upsert({
             where: { name: category },
             update: {},
             create: { name: category },
@@ -14,7 +14,7 @@ async function main() {
 
     // Tags
     for (const tag of ['Programming', 'Design', 'Tutorial', 'Review']) {
-        await prisma.tag.upsert({
+        await prismaSeed.tag.upsert({
             where: { name: tag },
             update: {},
             create: { name: tag },
@@ -30,5 +30,5 @@ main()
         process.exit(1);
     })
     .finally(async () => {
-        await prisma.$disconnect();
+        await prismaSeed.$disconnect();
     });

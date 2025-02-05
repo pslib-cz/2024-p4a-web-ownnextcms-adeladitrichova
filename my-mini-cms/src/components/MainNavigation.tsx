@@ -14,122 +14,200 @@ import {
     User,
     Menu as MenuIcon
 } from 'lucide-react';
+import {
+    Paper,
+    Container,
+    Group,
+    Button,
+    Burger,
+    Drawer,
+    ScrollArea,
+    Divider,
+    UnstyledButton,
+    Stack,
+    Text,
+    Avatar,
+    Box,
+} from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 
 export default function MainNavigation() {
     const { data: session } = useSession();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
 
-    const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+    const mainLinks = [
+        { link: '/', label: 'Home', icon: Home },
+        { link: '/articles', label: 'Articles', icon: BookOpen },
+        ...(session ? [{ link: '/dashboard', label: 'Dashboard', icon: User }] : []),
+    ];
 
     return (
-        <nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-            <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                {/* Logo */}
-                <Link href="/" className="text-2xl font-bold text-blue-600 flex items-center">
-                    <BookOpen className="mr-2" /> MyContentPlatform
-                </Link>
+        <Box pb={60}>
+            <Paper
+                shadow="sm"
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 60,
+                    zIndex: 100,
+                }}
+            >
+                <Container size="lg" h="100%">
+                    <Group justify="space-between" h="100%">
+                        {/* Logo */}
+                        <Link href="/" style={{ textDecoration: 'none' }}>
+                            <Group>
+                                <BookOpen size={30} color="#228be6" />
+                                <Text
+                                    size="xl"
+                                    fw={700}
+                                    variant="gradient"
+                                    gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+                                >
+                                    Article World
+                                </Text>
+                            </Group>
+                        </Link>
 
-                {/* Mobile Menu Toggle */}
-                <button
-                    onClick={toggleMenu}
-                    className="md:hidden text-gray-600 hover:text-blue-600"
-                >
-                    <MenuIcon />
-                </button>
-
-                {/* Desktop Navigation */}
-                <div className="hidden md:flex items-center space-x-6">
-                    <Link
-                        href="/"
-                        className="flex items-center text-gray-700 hover:text-blue-600 transition"
-                    >
-                        <Home className="mr-2" size={20} /> Home
-                    </Link>
-                    <Link
-                        href="/articles"
-                        className="flex items-center text-gray-700 hover:text-blue-600 transition"
-                    >
-                        <BookOpen className="mr-2" size={20} /> Articles
-                    </Link>
-
-                    {session ? (
-                        <>
-                            <Link
-                                href="/dashboard"
-                                className="flex items-center text-gray-700 hover:text-blue-600 transition"
-                            >
-                                <User className="mr-2" size={20} /> Dashboard
-                            </Link>
-                            <button
-                                onClick={() => signOut()}
-                                className="flex items-center bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 transition"
-                            >
-                                <LogOut className="mr-2" size={20} /> Logout
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            onClick={() => signIn('github')}
-                            className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 transition"
-                        >
-                            <LogIn className="mr-2" size={20} /> Login
-                        </button>
-                    )}
-                </div>
-
-                {/* Mobile Menu */}
-                {isMenuOpen && (
-                    <div className="absolute top-full left-0 w-full bg-white shadow-lg md:hidden">
-                        <div className="flex flex-col p-4 space-y-2">
-                            <Link
-                                href="/"
-                                className="flex items-center p-2 hover:bg-gray-100 rounded"
-                                onClick={toggleMenu}
-                            >
-                                <Home className="mr-2" size={20} /> Home
-                            </Link>
-                            <Link
-                                href="/articles"
-                                className="flex items-center p-2 hover:bg-gray-100 rounded"
-                                onClick={toggleMenu}
-                            >
-                                <BookOpen className="mr-2" size={20} /> Articles
-                            </Link>
+                        {/* Desktop Navigation */}
+                        <Group gap={5} visibleFrom="sm">
+                            {mainLinks.map((link) => (
+                                <Link
+                                    key={link.link}
+                                    href={link.link}
+                                    style={{ textDecoration: 'none' }}
+                                >
+                                    <Button
+                                        variant="subtle"
+                                        leftSection={<link.icon size={20} />}
+                                    >
+                                        {link.label}
+                                    </Button>
+                                </Link>
+                            ))}
 
                             {session ? (
-                                <>
-                                    <Link
-                                        href="/dashboard"
-                                        className="flex items-center p-2 hover:bg-gray-100 rounded"
-                                        onClick={toggleMenu}
+                                <Group ml="xl">
+                                    <Avatar
+                                        src={session.user?.image}
+                                        radius="xl"
+                                        size={36}
+                                    />
+                                    <Button
+                                        variant="filled"
+                                        color="red"
+                                        leftSection={<LogOut size={20} />}
+                                        onClick={() => signOut()}
                                     >
-                                        <User className="mr-2" size={20} /> Dashboard
-                                    </Link>
-                                    <button
-                                        onClick={() => {
-                                            signOut();
-                                            toggleMenu();
-                                        }}
-                                        className="flex items-center p-2 hover:bg-gray-100 rounded text-red-500"
-                                    >
-                                        <LogOut className="mr-2" size={20} /> Logout
-                                    </button>
-                                </>
+                                        Logout
+                                    </Button>
+                                </Group>
                             ) : (
-                                <button
-                                    onClick={() => {
-                                        signIn('github');
-                                        toggleMenu();
-                                    }}
-                                    className="flex items-center p-2 hover:bg-gray-100 rounded text-blue-500"
+                                <Button
+                                    variant="filled"
+                                    leftSection={<LogIn size={20} />}
+                                    onClick={() => signIn('github')}
                                 >
-                                    <LogIn className="mr-2" size={20} /> Login
-                                </button>
+                                    Login
+                                </Button>
                             )}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </nav>
+                        </Group>
+
+                        {/* Mobile Menu Button */}
+                        <Burger
+                            opened={drawerOpened}
+                            onClick={toggleDrawer}
+                            hiddenFrom="sm"
+                        />
+                    </Group>
+                </Container>
+            </Paper>
+
+            {/* Mobile Drawer */}
+            <Drawer
+                opened={drawerOpened}
+                onClose={closeDrawer}
+                size="100%"
+                padding="md"
+                title="Navigation"
+                hiddenFrom="sm"
+                zIndex={1000000}
+            >
+                <ScrollArea h={`calc(100vh - 60px)`} mx="-md">
+                    <Divider my="sm" />
+
+                    {session && (
+                        <Group p="md">
+                            <Avatar src={session.user?.image} radius="xl" />
+                            <Box>
+                                <Text fw={500}>{session.user?.name}</Text>
+                                <Text size="xs" c="dimmed">{session.user?.email}</Text>
+                            </Box>
+                        </Group>
+                    )}
+
+                    <Divider my="sm" />
+
+                    <Stack p="md" gap="sm">
+                        {mainLinks.map((link) => (
+                            <Link
+                                key={link.link}
+                                href={link.link}
+                                style={{ textDecoration: 'none' }}
+                                onClick={closeDrawer}
+                            >
+                                <UnstyledButton
+                                    py="xs"
+                                    px="sm"
+                                    w="100%"
+                                    style={(theme) => ({
+                                        borderRadius: theme.radius.sm,
+                                        '&:hover': {
+                                            backgroundColor: theme.colors.gray[0],
+                                        },
+                                    })}
+                                >
+                                    <Group>
+                                        <link.icon size={20} />
+                                        <Text size="sm">{link.label}</Text>
+                                    </Group>
+                                </UnstyledButton>
+                            </Link>
+                        ))}
+
+                        <Divider my="sm" />
+
+                        {session ? (
+                            <Button
+                                variant="filled"
+                                color="red"
+                                leftSection={<LogOut size={20} />}
+                                onClick={() => {
+                                    signOut();
+                                    closeDrawer();
+                                }}
+                                fullWidth
+                            >
+                                Logout
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="filled"
+                                leftSection={<LogIn size={20} />}
+                                onClick={() => {
+                                    signIn('github');
+                                    closeDrawer();
+                                }}
+                                fullWidth
+                            >
+                                Login
+                            </Button>
+                        )}
+                    </Stack>
+                </ScrollArea>
+            </Drawer>
+        </Box>
     );
 }
