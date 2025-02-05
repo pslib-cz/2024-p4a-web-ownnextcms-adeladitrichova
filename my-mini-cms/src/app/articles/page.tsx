@@ -1,28 +1,66 @@
 // src/app/articles/page.tsx
-import { getAuthSession } from '@/libs/auth';
-import prisma from '@/libs/prisma';
+'use client';
+
 import { Container, Title, Grid, Card, Text, Badge, Group, Button } from '@mantine/core';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export const metadata = {
-    title: 'Articles | Content Platform',
-    description: 'Browse all published articles',
+type Article = {
+    id: string;
+    title: string;
+    content: string;
+    published: boolean;
+    createdAt: string;
+    author: {
+        name: string | null;
+        email: string | null;
+    };
+    category: {
+        name: string;
+    };
+    tags: Array<{
+        id: string;
+        name: string;
+    }>;
 };
 
-export default async function ArticlesPage() {
-    const articles = await prisma.article.findMany({
-        where: {
-            published: true,
-        },
-        include: {
-            author: true,
-            category: true,
-            tags: true,
-        },
-        orderBy: {
-            createdAt: 'desc',
-        },
-    });
+export default function ArticlesPage() {
+    const [articles, setArticles] = useState<Article[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchArticles() {
+            try {
+                const response = await fetch('/api/articles');
+                if (!response.ok) throw new Error('Failed to fetch articles');
+                const data = await response.json();
+                setArticles(data);
+            } catch (error) {
+                console.error('Error fetching articles:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchArticles();
+    }, []);
+
+    if (loading) {
+        return (
+            <Container size="lg" py="xl">
+                <Text>Loading articles...</Text>
+            </Container>
+        );
+    }
+
+    if (articles.length === 0) {
+        return (
+            <Container size="lg" py="xl">
+                <Title order={1} mb="xl">Articles</Title>
+                <Text>No articles found.</Text>
+            </Container>
+        );
+    }
 
     return (
         <Container size="lg" py="xl">
@@ -30,10 +68,10 @@ export default async function ArticlesPage() {
 
             <Grid>
                 {articles.map((article) => (
-                    <Grid.Col key={article.id} xs={12} sm={6} lg={4}>
+                    <Grid.Col key={article.id}>
                         <Card shadow="sm" padding="lg" radius="md" withBorder>
-                            <Group position="apart" mb="xs">
-                                <Text weight={500}>{article.title}</Text>
+                            <Group mb="xs">
+                                <Text >{article.title}</Text>
                                 <Badge color="blue">{article.category.name}</Badge>
                             </Group>
 
@@ -41,7 +79,7 @@ export default async function ArticlesPage() {
                                 {article.content}
                             </Text>
 
-                            <Group spacing={5}>
+                            <Group>
                                 {article.tags.slice(0, 3).map(tag => (
                                     <Badge key={tag.id} color="gray" size="sm">
                                         {tag.name}
