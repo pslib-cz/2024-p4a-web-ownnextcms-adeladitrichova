@@ -18,7 +18,6 @@ export const authOptions: NextAuthOptions = {
             if (!user.email) return false;
 
             try {
-                // Create or update user in database
                 await prisma.user.upsert({
                     where: { email: user.email },
                     update: {

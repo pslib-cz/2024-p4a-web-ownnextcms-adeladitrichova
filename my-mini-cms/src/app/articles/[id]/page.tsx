@@ -3,43 +3,51 @@ import { getAuthSession } from '@/libs/auth';
 import prisma from '@/libs/prisma';
 import { notFound } from 'next/navigation';
 import { Card, Container, Title, Text, Badge, Stack, Group } from '@mantine/core';
+import { Metadata } from 'next';
 
-interface ArticlePageProps {
-    params: {
-        id: string;
-    };
+// Fixed Props type for Next.js 15.1.6
+interface PageProps {
+    params: { id: string };
 }
 
-// Generate metadata for SEO
-export async function generateMetadata({ params }: ArticlePageProps) {
-    const article = await prisma.article.findUnique({
-        where: {
-            id: params.id,
-            published: true
-        },
-        include: {
-            author: true,
-            category: true,
-            tags: true,
-        },
-    });
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+     const id = await params.id;
 
-    if (!article) {
+    try {
+        const article = await prisma.article.findUnique({
+            where: {
+                id,
+                published: true
+            },
+            include: {
+                author: true,
+                category: true,
+                tags: true,
+            },
+        });
+
+        if (!article) {
+            return {
+                title: 'Article Not Found',
+                description: 'The requested article could not be found',
+            };
+        }
+
         return {
-            title: 'Article Not Found',
-            description: 'The requested article could not be found',
+            title: article.title,
+            description: article.content.slice(0, 160) + '...',
+            authors: [{ name: article.author.name || 'Anonymous' }],
+            keywords: article.tags.map(tag => tag.name),
+        };
+    } catch (error) {
+        return {
+            title: 'Error',
+            description: 'Error loading article',
         };
     }
-
-    return {
-        title: article.title,
-        description: article.content.slice(0, 160) + '...',
-        authors: [{ name: article.author.name || 'Anonymous' }],
-        keywords: article.tags.map(tag => tag.name),
-    };
 }
 
-export default async function ArticlePage({ params }: ArticlePageProps) {
+export default async function ArticlePage({ params }: PageProps) {
     const session = await getAuthSession();
     const article = await prisma.article.findUnique({
         where: {
@@ -85,10 +93,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                         ))}
                     </Group>
 
-                    {/* If you want to support markdown content */}
                     <Text>{article.content}</Text>
 
-                    {/* Show draft status for authors */}
                     {session?.user?.email === article.author.email && !article.published && (
                         <Badge color="yellow" size="lg">Draft</Badge>
                     )}

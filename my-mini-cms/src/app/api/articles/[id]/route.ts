@@ -10,6 +10,9 @@ export async function GET(
 ) {
     try {
         const session = await getAuthSession();
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         const article = await prisma.article.findUnique({
             where: { id: params.id },
@@ -29,16 +32,7 @@ export async function GET(
             return NextResponse.json({ error: "Article not found" }, { status: 404 });
         }
 
-        // If article is published, allow public access
-        if (article.published) {
-            return NextResponse.json(article);
-        }
-
-        // If article is not published, only allow access to the author
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
+        // Check if the user owns this article
         if (article.author.email !== session.user.email) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }

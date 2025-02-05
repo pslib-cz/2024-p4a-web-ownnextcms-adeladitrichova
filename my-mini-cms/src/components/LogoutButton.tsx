@@ -1,7 +1,8 @@
-import { signOut, auth } from "../libs/auth";
+import { signOut } from "next-auth/react";
+import { getAuthSession } from "@/libs/auth";
 
 const LogoutButton = async () => {
-    const session = await auth();
+    const session = await getAuthSession();
 
   if (session) {
       return (

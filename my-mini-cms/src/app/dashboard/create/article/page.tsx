@@ -1,11 +1,11 @@
 // src/app/dashboard/create/article/page.tsx
-import { auth } from "@/libs/auth";
+import { getAuthSession } from "@/libs/auth";
 import prisma from "@/libs/prisma";
 import { redirect } from "next/navigation";
 import CreateArticleForm from "@/components/CreateArticleForm";
 
 export default async function CreateArticlePage() {
-    const session = await auth();
+    const session = await getAuthSession();
 
     if (!session?.user) {
         redirect("/api/auth/signin");

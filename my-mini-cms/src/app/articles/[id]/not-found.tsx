@@ -2,7 +2,7 @@
 import { Container, Title, Text, Button, Group } from '@mantine/core';
 import Link from 'next/link';
 
-export default function ArticleNotFound() {
+export default function NotFound() {
     return (
         <Container size="lg" py="xl">
             <Title order={1} mb="xl">Article Not Found</Title>

@@ -54,8 +54,7 @@ export default function ArticlesPage() {
                 setArticles(data);
                 setFilteredArticles(data);
 
-                // Extract unique categories
-                const uniqueCategories = Array.from(
+                const uniqueCategories: string[] = Array.from(
                     new Set(data.map((article: Article) => article.category.name))
                 );
                 setCategories(uniqueCategories);
@@ -157,7 +156,7 @@ export default function ArticlesPage() {
                         <Grid.Col key={article.id}>
                             <Card shadow="sm" padding="lg" radius="md" withBorder>
                                 <Group mb="xs">
-                                    <Text>{article.title}</Text>
+                                    <Text >{article.title}</Text>
                                     <Badge color="blue">{article.category.name}</Badge>
                                 </Group>
 

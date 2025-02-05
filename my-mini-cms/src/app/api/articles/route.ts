@@ -69,20 +69,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const user = await prisma.user.findUnique({
+        // Use let instead of const for user since we might need to reassign it
+        let user = await prisma.user.findUnique({
             where: { email: session.user.email },
         });
 
         if (!user) {
             // Create user if they don't exist
-            const newUser = await prisma.user.create({
+            user = await prisma.user.create({
                 data: {
                     email: session.user.email,
                     name: session.user.name || '',
                     image: session.user.image || '',
                 }
             });
-            user = newUser;
         }
 
         const json = await request.json();
